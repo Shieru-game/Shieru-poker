@@ -43,6 +43,7 @@
             <div class="space-y-4">
                 <input id="join-name" type="text" placeholder="你的名號" class="w-full bg-slate-800 p-3 rounded border border-slate-700 outline-none text-center">
                 <input id="join-chips" type="number" value="1000" class="w-full bg-slate-800 p-3 rounded border border-slate-700 outline-none text-center">
+                <input id="room-pass" type="password" placeholder="房間密碼" class="w-full bg-slate-800 p-3 rounded border border-slate-700 outline-none text-center">
                 <button onclick="joinCasino()" class="w-full bg-amber-600 py-3 rounded-xl font-bold hover:bg-amber-500 transition">進入賭場</button>
             </div>
         </div>
@@ -91,6 +92,12 @@
                 <div class="flex gap-2 z-10">
                     <div id="card-left" class="poker-card back">?</div>
                     <div id="card-mid" class="poker-card back">?</div>
+                    <div id="current-player-display" class="absolute -bottom-12 left-1/2 -translate-x-1/2 w-full text-center">
+                        <div class="text-[10px] text-amber-500 font-bold mb-1">CURRENT TURN</div>
+                        <div id="active-player-name" class="text-xl font-black text-white bg-slate-900/80 px-4 py-1 rounded-full border border-amber-500 shadow-lg italic">
+                            等待開局...
+                        </div>
+                    </div>
                     <div id="card-right" class="poker-card back">?</div>
                 </div>
             </div>
@@ -159,6 +166,11 @@
         window.joinCasino = async function() {
             const name = document.getElementById('join-name').value.trim();
             const chips = parseInt(document.getElementById('join-chips').value);
+
+            const pass = document.getElementById('room-pass').value;
+            if (pass !== "0857") return alert("密碼錯誤！");
+            // -----------------------
+
             if(!name || isNaN(chips)) return alert("請輸入名號與籌碼");
             myName = name;
 
@@ -222,7 +234,19 @@
             renderCard('card-left', roomData.cards?.left);
             renderCard('card-right', roomData.cards?.right);
             renderCard('card-mid', roomData.cards?.mid);
-
+            // --- 【這是你要插入的精確位置】 ---
+            // 2. 更新牌桌中央的名字 (顯示目前輪到誰)
+            const activePlayerDisplay = document.getElementById('active-player-name');
+            if (activePlayerDisplay) {
+                if (roomData.currentTurn && roomData.players && roomData.players[roomData.currentTurn]) {
+                    const p = roomData.players[roomData.currentTurn];
+                    activePlayerDisplay.innerText = `🔥 ${p.name} ($${p.chips})`;
+                    activePlayerDisplay.parentElement.classList.remove('hidden'); // 確保顯示
+                } else {
+                    activePlayerDisplay.innerText = "等待發牌...";
+                }
+            }
+            // ------------------------------------
             const lb = Object.values(roomData.leaderboard || {}).sort((a,b)=>b.currentChips-a.currentChips);
             document.getElementById('leaderboard').innerHTML = lb.map((l, i)=>`<div class="flex justify-between border-b border-slate-800 pb-1"><span>${i+1}. ${l.name}</span><span class="text-amber-500">$${l.currentChips}</span></div>`).join('');
 
