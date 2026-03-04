@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>射龍門-ZuRi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: "Microsoft JhengHei", sans-serif; }
+        .casino-table {
+            position: relative; width: 340px; height: 340px;
+            background: radial-gradient(circle, #065f46 0%, #013220 100%);
+            border: 12px solid #451a03; border-radius: 50%; margin: 10px auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), inset 0 0 80px rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center;
+        }
+        @media (min-width: 640px) { .casino-table { width: 480px; height: 480px; } }
+        
+        .main-slogan-area { text-align: center; margin-bottom: -10px; z-index: 50; }
+        .slogan-banner {
+            display: inline-block; background: linear-gradient(to bottom, #f59e0b, #b45309);
+            padding: 8px 30px; border-radius: 50px; border: 3px solid #fef3c7;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+        }
+        .slogan-text {
+            color: #fff; font-weight: 900; font-size: 1.5rem; letter-spacing: 4px;
+            text-shadow: 2px 2px 0px #78350f; animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.05); } }
+
+        .poker-card { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5); font-size: 1.4rem; position: relative; }
+        .poker-card.red { color: #dc2626; }
+        .poker-card.back { background: linear-gradient(135deg, #991b1b 0%, #450a0a 100%); color: white; border: 2px solid white; }
+        .side-panel { background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-radius: 12px; padding: 10px; overflow-y: auto; }
+        .log-highlight { color: #fbbf24; font-weight: bold; background: rgba(251, 191, 36, 0.1); padding: 2px 4px; border-radius: 4px; border-left: 3px solid #fbbf24; }
+    </style>
+</head>
+<body class="p-2 sm:p-4">
+
+    <div id="auth-screen" class="fixed inset-0 z-[300] bg-slate-950 flex items-center justify-center p-4">
+        <div class="bg-slate-900 p-8 rounded-2xl border-2 border-amber-600 w-full max-w-sm text-center">
+            <h1 class="text-3xl font-black text-amber-500 mb-6 italic">大賭郭台銘</h1>
+            <div class="space-y-4">
+                <input id="join-name" type="text" placeholder="你的名號" class="w-full bg-slate-800 p-3 rounded border border-slate-700 outline-none text-center">
+                <input id="join-chips" type="number" value="1000" class="w-full bg-slate-800 p-3 rounded border border-slate-700 outline-none text-center">
+                <button onclick="joinCasino()" class="w-full bg-amber-600 py-3 rounded-xl font-bold hover:bg-amber-500 transition">進入賭場</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div class="lg:col-span-1 space-y-4">
+            <div class="side-panel h-[350px]">
+                <div class="font-bold text-amber-400 mb-2 border-b border-slate-700 pb-1">🏆 財富排行榜</div>
+                <div id="leaderboard" class="space-y-2 text-[11px]"></div>
+            </div>
+            
+            <div id="host-panel" class="hidden bg-slate-800/80 p-4 rounded-xl border border-amber-900/50">
+                <h3 class="text-amber-500 font-bold mb-3 text-xs">⚙️ 房主操控台</h3>
+                <div class="text-[10px] space-y-2">
+                    <div class="flex justify-between"><span>最低押注:</span><input id="set-minBet" type="number" class="w-12 bg-black rounded px-1" value="10"></div>
+                    <div class="flex justify-between"><span>補底觸發線:</span><input id="set-refillAt" type="number" class="w-12 bg-black rounded px-1" value="50"></div>
+                    <div class="flex justify-between"><span>每人補底費:</span><input id="set-refillVal" type="number" class="w-12 bg-black rounded px-1" value="50"></div>
+                    <div class="flex items-center gap-2"><input type="checkbox" id="set-passPenalty" checked><span>PASS 罰最低注</span></div>
+                    <button onclick="saveSettings()" class="w-full bg-slate-700 py-1 rounded mt-2 hover:bg-slate-600">同步設定</button>
+                    <hr class="border-slate-700 my-2">
+                    <button id="btn-host-start" onclick="processQueue()" class="w-full bg-indigo-600 py-2 rounded font-bold text-white hidden animate-bounce">🔔 帶領排隊者入場</button>
+                    <div id="host-start-hint" class="text-[9px] text-red-400 mt-1 hidden">池底未歸零，新玩家尚不能入場</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 flex flex-col items-center">
+            <div class="main-slogan-area">
+                <div class="slogan-banner"><span class="slogan-text">小賭怡情 大賭郭台銘</span></div>
+            </div>
+
+            <div class="flex gap-4 my-4 text-center">
+                <div class="bg-slate-800 px-6 py-2 rounded-xl border border-amber-600">
+                    <span class="text-slate-400 text-[10px] block">池底餘額</span>
+                    <div id="display-pot" class="text-2xl font-black text-amber-400">0</div>
+                </div>
+                <button id="btn-join-queue" onclick="requestToPlay()" class="bg-blue-600 px-4 py-2 rounded-xl font-bold text-sm">報名參賽</button>
+                <div id="queue-status" class="bg-indigo-900/50 px-4 py-2 rounded-xl border border-indigo-500 text-[10px] flex flex-col items-center justify-center hidden italic">
+                    <div>已進入排隊名單</div>
+                    <div class="text-[8px] opacity-70">等待池底歸零中...</div>
+                </div>
+            </div>
+
+            <div class="casino-table">
+                <div class="flex gap-2 z-10">
+                    <div id="card-left" class="poker-card back">?</div>
+                    <div id="card-mid" class="poker-card back">?</div>
+                    <div id="card-right" class="poker-card back">?</div>
+                </div>
+            </div>
+
+            <button id="btn-next" onclick="startNewRound()" class="hidden bg-emerald-600 px-10 py-3 rounded-full font-black shadow-xl mb-4 hover:bg-emerald-500 transition">下一局 (發牌)</button>
+        </div>
+
+        <div class="lg:col-span-1 space-y-4">
+            <div class="side-panel h-[180px]">
+                <div class="font-bold text-emerald-400 mb-2 border-b border-slate-700 pb-1 text-xs">👥 場內動態</div>
+                <div id="online-players" class="space-y-1 text-[11px]"></div>
+            </div>
+            <div class="side-panel flex flex-col h-[300px]">
+                <div id="log-content" class="flex-grow overflow-y-auto text-[11px] space-y-1 p-1 font-mono"></div>
+                <div class="mt-2 flex gap-1">
+                    <input id="chat-input" type="text" placeholder="聊兩句..." class="bg-black border border-slate-700 rounded p-2 w-full text-xs outline-none">
+                    <button onclick="sendChat()" class="bg-amber-600 px-3 rounded font-bold text-xs">送出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="action-control" class="fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t-4 border-amber-600 p-4 z-[200] hidden text-white">
+        <div class="max-w-md mx-auto text-center">
+            <div id="mode-text" class="text-amber-500 font-bold mb-2 text-lg italic">請下注</div>
+            <div id="pair-selector" class="hidden mb-4 p-3 bg-indigo-900/40 rounded-xl border border-indigo-500">
+                <div class="text-xs mb-2">【對子挑戰】預測第三張牌比這張大或小？</div>
+                <div class="flex gap-4">
+                    <button onclick="setPairPredict('high')" id="btn-high" class="flex-1 py-3 bg-indigo-600 rounded-lg font-black">賭大 (High)</button>
+                    <button onclick="setPairPredict('low')" id="btn-low" class="flex-1 py-3 bg-pink-700 rounded-lg font-black">賭小 (Low)</button>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <button onclick="quickBet(0.5)" class="flex-1 bg-slate-700 py-2 rounded text-xs hover:bg-slate-600">1/2池</button>
+                <button onclick="quickBet(1)" class="flex-1 bg-slate-700 py-2 rounded text-xs hover:bg-slate-600">梭哈 (全下)</button>
+                <button onclick="handlePassAction()" class="flex-1 bg-blue-900 py-2 rounded text-xs hover:bg-blue-800">棄牌 (PASS)</button>
+            </div>
+            <input id="bet-input" type="number" class="w-full bg-black p-3 rounded-xl text-xl font-black text-center border border-amber-600 mb-3 outline-none" value="10">
+            <button id="btn-shoot" onclick="performShoot()" class="w-full bg-red-600 py-4 rounded-xl text-xl font-black hover:bg-red-500 transition">射門！！</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, runTransaction, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Firebase 保持原樣
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkThcX9ZQBAi3pb-sfwKzzjWBNKsiwNE8",
+            authDomain: "shieru-7cd1f.firebaseapp.com",
+            databaseURL: "https://shieru-7cd1f-default-rtdb.firebaseio.com",
+            projectId: "shieru-7cd1f",
+            storageBucket: "shieru-7cd1f.firebasestorage.app",
+            messagingSenderId: "1096617694022",
+            appId: "1:1096617694022:web:fc8d9210aa21f972960b47"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const ROOM_ID = "poker_final_lock_v4";
+        const roomRef = ref(db, `rooms/${ROOM_ID}`);
+
+        let myUid = "u" + Math.random().toString(36).substr(2, 7);
+        let myName = "", roomData = null, pairPredict = null;
+
+        window.joinCasino = async function() {
+            const name = document.getElementById('join-name').value.trim();
+            const chips = parseInt(document.getElementById('join-chips').value);
+            if(!name || isNaN(chips)) return alert("請輸入名號與籌碼");
+            myName = name;
+
+            await runTransaction(roomRef, (cur) => {
+                if (cur === null) {
+                    return {
+                        pot: 0, deck: createDeck(), currentTurn: "", 
+                        cards: { left: null, right: null, mid: null },
+                        config: { minBet: 10, refillAt: 50, refillVal: 50, bumpMult: 2, passPenaltyEnabled: true },
+                        waitingQueue: [], leaderboard: {}, logs: ["💰 賭場開張！小賭怡情，大賭郭台銘。"]
+                    };
+                }
+            });
+
+            await update(ref(db, `rooms/${ROOM_ID}/leaderboard/${myUid}`), { name, initChips: chips, currentChips: chips });
+            const pRef = ref(db, `rooms/${ROOM_ID}/players/${myUid}`);
+            await set(pRef, { id: myUid, name, chips, status: 'spectator', joinTime: Date.now() });
+
+            onDisconnect(pRef).remove();
+            document.getElementById('auth-screen').style.display = 'none';
+            onValue(roomRef, (snapshot) => { roomData = snapshot.val(); if(roomData) renderUI(); });
+        };
+
+        window.requestToPlay = async function() {
+            const q = roomData.waitingQueue || [];
+            if(q.includes(myUid) || roomData.players[myUid].status === 'player') return;
+            q.push(myUid);
+            // 當有人點擊參賽，這個動作本身就會透過 DB 廣播給所有人，補底邏輯會因為偵測到有人在 queue 而停止。
+            await update(roomRef, { waitingQueue: q });
+            pushLog(`📢 ${myName} 準備好上桌了！補底機制暫時鎖定。`);
+        };
+
+        window.processQueue = async function() {
+            const q = roomData.waitingQueue || [];
+            if(q.length === 0) return;
+            if(roomData.pot > 0) return alert("池底還沒清空，新玩家不能入場！");
+
+            const up = {}; let fee = 0;
+            q.forEach(uid => {
+                if(roomData.players[uid]) {
+                    up[`players/${uid}/status`] = 'player';
+                    up[`players/${uid}/chips`] = roomData.players[uid].chips - roomData.config.refillVal;
+                    up[`leaderboard/${uid}/currentChips`] = roomData.players[uid].chips - roomData.config.refillVal;
+                    fee += roomData.config.refillVal;
+                }
+            });
+            up[`pot`] = fee;
+            up[`waitingQueue`] = [];
+            up[`logs`] = [`🔥 房主點兵！${q.length} 位新玩家入場，池底重新累積至 $${fee}。`, ...(roomData.logs || [])].slice(0, 15);
+            await update(roomRef, up);
+        };
+
+        function createDeck() {
+            const s=['S','H','D','C'], v=[1,2,3,4,5,6,7,8,9,10,11,12,13], d=[]; 
+            for(let i=0;i<2;i++) s.forEach(si=>v.forEach(vi=>d.push({s:si,v:vi})));
+            return d.sort(()=>Math.random()-0.5);
+        }
+
+        function renderUI() {
+            document.getElementById('display-pot').innerText = `$${roomData.pot}`;
+            renderCard('card-left', roomData.cards?.left);
+            renderCard('card-right', roomData.cards?.right);
+            renderCard('card-mid', roomData.cards?.mid);
+
+            const lb = Object.values(roomData.leaderboard || {}).sort((a,b)=>b.currentChips-a.currentChips);
+            document.getElementById('leaderboard').innerHTML = lb.map((l, i)=>`<div class="flex justify-between border-b border-slate-800 pb-1"><span>${i+1}. ${l.name}</span><span class="text-amber-500">$${l.currentChips}</span></div>`).join('');
+
+            const pList = Object.values(roomData.players || {}).sort((a,b)=>a.joinTime-b.joinTime);
+            document.getElementById('online-players').innerHTML = pList.map(p => `<div class="p-1 bg-slate-800/30 mb-1 rounded flex justify-between"><span>${p.name}</span><span>${p.status==='player'?'🎮':'👁️'}</span></div>`).join('');
+
+            const isHost = pList[0]?.id === myUid;
+            const qCount = (roomData.waitingQueue || []).length;
+            document.getElementById('host-panel').style.display = isHost ? 'block' : 'none';
+            
+            // 房主開局按鈕邏輯：必須有人排隊 且 池底為 0
+            const canProcess = isHost && qCount > 0 && roomData.pot === 0;
+            document.getElementById('btn-host-start').classList.toggle('hidden', !canProcess);
+            document.getElementById('host-start-hint').classList.toggle('hidden', !(isHost && qCount > 0 && roomData.pot > 0));
+
+            const hasPlayers = pList.some(p => p.status === 'player');
+            document.getElementById('btn-next').style.display = (isHost && hasPlayers && (!roomData.cards?.left || roomData.cards?.mid)) ? 'block' : 'none';
+
+            const myStatus = roomData.players[myUid]?.status;
+            const inQueue = (roomData.waitingQueue || []).includes(myUid);
+            document.getElementById('btn-join-queue').style.display = (myStatus === 'player' || inQueue) ? 'none' : 'block';
+            document.getElementById('queue-status').style.display = inQueue ? 'flex' : 'none';
+
+            const isMyTurn = roomData.currentTurn === myUid && !roomData.cards?.mid;
+            document.getElementById('action-control').style.display = isMyTurn ? 'block' : 'none';
+            if (isMyTurn) {
+                const isPair = roomData.cards.left.v === roomData.cards.right.v;
+                document.getElementById('pair-selector').style.display = isPair ? 'block' : 'none';
+                document.getElementById('mode-text').innerText = isPair ? "對子戰！比大小 (A最小)" : "射門時間！";
+            }
+            document.getElementById('log-content').innerHTML = (roomData.logs || []).map(i=>`<div>${i}</div>`).join('');
+            document.getElementById('log-content').scrollTop = 9999;
+        }
+
+        function renderCard(id, c) {
+            const el = document.getElementById(id);
+            if(!c) { el.innerText='?'; el.className='poker-card back'; return; }
+            if(c.v===0) { el.innerText='PASS'; el.className='poker-card back text-[10px]'; return; }
+            const s={S:'♠',H:'♥',D:'♦',C:'♣'}, l={1:'A',11:'J',12:'Q',13:'K'};
+            el.innerHTML = `<span class="text-[10px] absolute top-1 left-1">${s[c.s]}</span>${l[c.v]||c.v}`;
+            el.className = `poker-card ${(c.s==='H'||c.s==='D')?'red':''}`;
+        }
+
+        window.startNewRound = async function() {
+            // 重要：當有人在等待排隊時 (waitingQueue.length > 0)，停止自動補底
+            const qCount = (roomData.waitingQueue || []).length;
+            
+            if (qCount === 0 && roomData.pot < roomData.config.refillAt) {
+                const players = Object.values(roomData.players).filter(p => p.status === 'player');
+                if(players.length > 0) {
+                    const up = {}; let total = 0;
+                    players.forEach(p => { 
+                        up[`players/${p.id}/chips`] = p.chips - roomData.config.refillVal; 
+                        up[`leaderboard/${p.id}/currentChips`] = p.chips - roomData.config.refillVal;
+                        total += roomData.config.refillVal;
+                    });
+                    up[`pot`] = roomData.pot + total;
+                    // 補底戰報日誌
+                    up[`logs`] = [`<div class="log-highlight">🔔 【補底戰報】池底告急！現有玩家各補繳 $${roomData.config.refillVal}。目前池底：$${roomData.pot + total}</div>`, ...(roomData.logs || [])].slice(0, 15);
+                    await update(roomRef, up);
+                }
+            }
+
+            let deck = [...(roomData.deck || [])];
+            if(deck.length < 15) deck = createDeck();
+            const l = deck.pop(), r = deck.pop();
+            const players = Object.values(roomData.players).filter(p => p.status === 'player').sort((a,b)=>a.joinTime-b.joinTime);
+            let nextIdx = 0;
+            if(roomData.currentTurn) {
+                const curIdx = players.findIndex(p => p.id === roomData.currentTurn);
+                nextIdx = (curIdx + 1) % players.length;
+            }
+            pairPredict = null;
+            update(roomRef, { 'cards/left': l, 'cards/right': r, 'cards/mid': null, 'deck': deck, 'currentTurn': players[nextIdx].id });
+        };
+
+        window.performShoot = function() {
+            const bet = parseInt(document.getElementById('bet-input').value);
+            if(isNaN(bet) || bet < roomData.config.minBet || bet > roomData.pot) return alert("金額錯誤");
+            const isPair = roomData.cards.left.v === roomData.cards.right.v;
+            if(isPair && !pairPredict) return alert("請選擇大或小");
+            let deck = [...roomData.deck]; const mid = deck.pop();
+            const {left, right} = roomData.cards;
+            let change = 0, msg = "";
+            if (isPair) {
+                if (mid.v === left.v) { change = -(bet * roomData.config.bumpMult); msg = `💥 對子撞柱！賠 $${Math.abs(change)}`; }
+                else if (pairPredict === 'high' && mid.v > left.v) { change = bet; msg = `🎉 賭大成功！贏 $${change}`; }
+                else if (pairPredict === 'low' && mid.v < left.v) { change = bet; msg = `🎉 賭小成功！贏 $${change}`; }
+                else { change = -bet; msg = `⚽ 賭錯了，輸 $${bet}`; }
+            } else {
+                const min = Math.min(left.v, right.v), max = Math.max(left.v, right.v);
+                if(mid.v === left.v || mid.v === right.v) { change = -(bet * roomData.config.bumpMult); msg = `💥 撞柱！賠 $${Math.abs(change)}`; }
+                else if(mid.v > min && mid.v < max) { change = bet; msg = `🎉 射進！贏 $${change}`; }
+                else { change = -bet; msg = `⚽ 門外，輸 $${bet}`; }
+            }
+            pushLog(`${myName}: ${msg}`);
+            const newChips = roomData.players[myUid].chips + change;
+            update(roomRef, { 'pot': roomData.pot - change, 'deck': deck, 'cards/mid': mid, [`players/${myUid}/chips`]: newChips, [`leaderboard/${myUid}/currentChips`]: newChips });
+        };
+
+        window.handlePassAction = function() {
+            const penalty = roomData.config.passPenaltyEnabled ? roomData.config.minBet : 0;
+            pushLog(`${myName}: PASS${penalty>0?` (-$${penalty})`:''}`);
+            const newChips = roomData.players[myUid].chips - penalty;
+            update(roomRef, { 'pot': roomData.pot + penalty, [`players/${myUid}/chips`]: newChips, [`leaderboard/${myUid}/currentChips`]: newChips, 'cards/mid': {s:'X',v:0} });
+        };
+
+        window.setPairPredict = (dir) => {
+            pairPredict = dir;
+            document.getElementById('btn-high').className = dir === 'high' ? 'flex-1 py-3 bg-indigo-400 rounded-lg font-black border-2 border-white' : 'flex-1 py-3 bg-indigo-600 rounded-lg font-black opacity-50';
+            document.getElementById('btn-low').className = dir === 'low' ? 'flex-1 py-3 bg-pink-500 rounded-lg font-black border-2 border-white' : 'flex-1 py-3 bg-pink-700 rounded-lg font-black opacity-50';
+        };
+
+        window.sendChat = function() { const i = document.getElementById('chat-input'); if(i.value) { pushLog(`${myName}: ${i.value}`); i.value = ""; } };
+        function pushLog(c) { const l = [...(roomData.logs || [])].slice(-15); l.push(c); update(roomRef, { logs: l }); }
+        window.saveSettings = function() {
+            update(roomRef, { 
+                'config/minBet': parseInt(document.getElementById('set-minBet').value),
+                'config/refillAt': parseInt(document.getElementById('set-refillAt').value),
+                'config/refillVal': parseInt(document.getElementById('set-refillVal').value),
+                'config/passPenaltyEnabled': document.getElementById('set-passPenalty').checked
+            });
+            alert("同步完成");
+        };
+        window.quickBet = (r) => { document.getElementById('bet-input').value = Math.floor(roomData.pot * r) || 10; };
+    </script>
+</body>
+</html>
