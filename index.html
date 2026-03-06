@@ -189,7 +189,7 @@
             const pRef = ref(db, `rooms/${ROOM_ID}/players/${myUid}`);
             await set(pRef, { id: myUid, name, chips, status: 'spectator', joinTime: Date.now() });
 
-            onDisconnect(pRef).remove();
+            // onDisconnect(pRef).remove();
             document.getElementById('auth-screen').style.display = 'none';
             onValue(roomRef, (snapshot) => { roomData = snapshot.val(); if(roomData) renderUI(); });
         };
@@ -376,3 +376,4 @@
 </body>
 
 </html>
+
